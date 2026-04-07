@@ -7,7 +7,8 @@ import { useState, useEffect, useCallback } from "react";
 const API_KEY = "AIzaSyCrMNXPAtXs1Z98p1i66EeiRQWxlTEPAhs";
 
 const CHANNEL_IDS = [
-  "UC0gGr2lh1BR-nmiCdJPbEFQ"
+  "UC0gGr2lh1BR-nmiCdJPbEFQ",
+  "UChoEDU4duXMa1gXSdMOMxKw"
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
