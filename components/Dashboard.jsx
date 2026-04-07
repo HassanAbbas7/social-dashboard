@@ -1,549 +1,451 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
-// ── Data ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG — edit these two values to get started
+// ─────────────────────────────────────────────────────────────────────────────
 
-const CHANNELS = [
-  {
-    id: "yt",
-    platform: "YouTube",
-    name: "TechTalks Studio",
-    handle: "@techtalks",
-    color: { bg: "#FBDADA", text: "#A32D2D", bar: "#F09595" },
-    metrics: [
-      { label: "Subscribers", value: "128K", delta: "+1.4K", up: true },
-      { label: "Views", value: "842K", delta: "+9%", up: true },
-      { label: "Comments", value: "3.1K", delta: "−4%", up: false },
-    ],
-    spark: [40, 55, 48, 70, 62, 85, 100],
-  },
-  {
-    id: "fb",
-    platform: "Facebook",
-    name: "TechTalks Official",
-    handle: "fb.com/techtalks",
-    color: { bg: "#D6E7FA", text: "#185FA5", bar: "#85B7EB" },
-    metrics: [
-      { label: "Followers", value: "74.2K", delta: "+310", up: true },
-      { label: "Reach", value: "310K", delta: "+5%", up: true },
-      { label: "Post likes", value: "9.8K", delta: "+2%", up: true },
-    ],
-    spark: [55, 65, 50, 75, 80, 70, 90],
-  },
-  {
-    id: "ig",
-    platform: "Instagram",
-    name: "TechTalks",
-    handle: "@techtalkshq",
-    color: { bg: "#F9DDEF", text: "#993556", bar: "#ED93B1" },
-    metrics: [
-      { label: "Followers", value: "61.4K", delta: "+820", up: true },
-      { label: "Impressions", value: "198K", delta: "+18%", up: true },
-      { label: "Story views", value: "14.2K", delta: "+7%", up: true },
-    ],
-    spark: [30, 42, 60, 55, 78, 88, 100],
-  },
-  {
-    id: "tk",
-    platform: "TikTok",
-    name: "TechTalks",
-    handle: "@techtalks_tt",
-    color: { bg: "#DDDCE8", text: "#3C3489", bar: "#AFA9EC" },
-    metrics: [
-      { label: "Followers", value: "21K", delta: "+1.1K", up: true },
-      { label: "Video views", value: "88.3K", delta: "+31%", up: true },
-      { label: "Shares", value: "2.4K", delta: "+14%", up: true },
-    ],
-    spark: [20, 28, 35, 50, 72, 88, 100],
-  },
+const API_KEY = "AIzaSyCrMNXPAtXs1Z98p1i66EeiRQWxlTEPAhs";
+
+const CHANNEL_IDS = [
+  "UC0gGr2lh1BR-nmiCdJPbEFQ"
 ];
 
-const POSTS = [
-  {
-    id: 1,
-    platform: "YouTube",
-    platformId: "yt",
-    title: "Why React Server Components actually matter in 2025",
-    age: "3 days ago",
-    stats: [
-      { label: "views", value: "24.1K" },
-      { label: "likes", value: "1.8K" },
-      { label: "comments", value: "342" },
-    ],
-  },
-  {
-    id: 2,
-    platform: "Instagram",
-    platformId: "ig",
-    title: "Behind the scenes: our new studio setup 🎥",
-    age: "1 day ago",
-    stats: [
-      { label: "reach", value: "8.4K" },
-      { label: "likes", value: "2.1K" },
-      { label: "comments", value: "87" },
-    ],
-  },
-  {
-    id: 3,
-    platform: "Facebook",
-    platformId: "fb",
-    title: "Are you team tabs or spaces? Drop your answer below",
-    age: "5 days ago",
-    stats: [
-      { label: "reach", value: "12.7K" },
-      { label: "likes", value: "940" },
-      { label: "comments", value: "215" },
-    ],
-  },
-  {
-    id: 4,
-    platform: "TikTok",
-    platformId: "tk",
-    title: "POV: you pushed to prod on a Friday",
-    age: "2 days ago",
-    stats: [
-      { label: "views", value: "33K" },
-      { label: "likes", value: "4.2K" },
-      { label: "shares", value: "189" },
-    ],
-  },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// YouTube API helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
-const PLATFORM_SHARE = [
-  { id: "yt", label: "YouTube", pct: 45, bar: "#F09595" },
-  { id: "fb", label: "Facebook", pct: 26, bar: "#85B7EB" },
-  { id: "ig", label: "Instagram", pct: 22, bar: "#ED93B1" },
-  { id: "tk", label: "TikTok", pct: 7, bar: "#AFA9EC" },
-];
+const YT = "https://www.googleapis.com/youtube/v3";
 
-const ALERTS = [
-  { dot: "#1D9E75", text: "YouTube video hit 25K views — fastest in 6 months", time: "2 hours ago" },
-  { dot: "#378ADD", text: "Facebook page reached 74K followers milestone", time: "Yesterday" },
-  { dot: "#D4537E", text: "TikTok engagement rate at 12% — above average", time: "2 days ago" },
-  { dot: "#D85A30", text: "Instagram reach dropped 8% — consider posting more reels", time: "3 days ago" },
-];
+async function fetchChannels(ids) {
+  const url = `${YT}/channels?part=snippet,statistics,brandingSettings&id=${ids.join(",")}&key=${API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`YouTube API error: ${res.status}`);
+  const data = await res.json();
+  return data.items || [];
+}
 
-const SUMMARY = [
-  { label: "Total followers", value: "284.6K", delta: "+3.2% this month", up: true },
-  { label: "Total impressions", value: "1.4M", delta: "+11.5% this month", up: true },
-  { label: "Avg. engagement rate", value: "4.8%", delta: "−0.3% this month", up: false },
-  { label: "Posts published", value: "38", delta: "+5 vs last month", up: true },
-];
+async function fetchRecentVideos(channelId, maxResults = 5) {
+  // 1. get uploads playlist id
+  const chRes = await fetch(
+    `${YT}/channels?part=contentDetails&id=${channelId}&key=${API_KEY}`
+  );
+  const chData = await chRes.json();
+  const uploadsId =
+    chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+  if (!uploadsId) return [];
 
-const PLATFORM_ABBR = { yt: "YT", fb: "FB", ig: "IG", tk: "TK" };
+  // 2. get recent video ids from uploads playlist
+  const plRes = await fetch(
+    `${YT}/playlistItems?part=contentDetails&playlistId=${uploadsId}&maxResults=${maxResults}&key=${API_KEY}`
+  );
+  const plData = await plRes.json();
+  const videoIds = (plData.items || []).map(
+    (i) => i.contentDetails.videoId
+  );
+  if (!videoIds.length) return [];
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+  // 3. get video stats
+  const vRes = await fetch(
+    `${YT}/videos?part=snippet,statistics&id=${videoIds.join(",")}&key=${API_KEY}`
+  );
+  const vData = await vRes.json();
+  return vData.items || [];
+}
 
-function PlatformBadge({ id, size = 32 }) {
-  const ch = CHANNELS.find((c) => c.id === id);
-  if (!ch) return null;
+// ─────────────────────────────────────────────────────────────────────────────
+// Formatters
+// ─────────────────────────────────────────────────────────────────────────────
+
+function fmt(n) {
+  const num = parseInt(n || "0", 10);
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
+  if (num >= 1_000) return (num / 1_000).toFixed(1) + "K";
+  return num.toLocaleString();
+}
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86_400_000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
+function engagementRate(stats) {
+  const views = parseInt(stats.viewCount || "0");
+  const likes = parseInt(stats.likeCount || "0");
+  const comments = parseInt(stats.commentCount || "0");
+  if (!views) return "0%";
+  return (((likes + comments) / views) * 100).toFixed(1) + "%";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RED = "#E53935";
+const RED_LIGHT = "#FFEBEE";
+const RED_MID = "#EF9A9A";
+
+function Spinner() {
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 8,
-        background: ch.color.bg,
-        color: ch.color.text,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: size * 0.4,
-        fontWeight: 600,
-        flexShrink: 0,
-      }}
-    >
-      {PLATFORM_ABBR[id]}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "4rem", gap: 16 }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: "50%",
+        border: `3px solid ${RED_LIGHT}`,
+        borderTop: `3px solid ${RED}`,
+        animation: "spin 0.8s linear infinite",
+      }} />
+      <span style={{ fontSize: 13, color: "var(--color-text-secondary, #888)" }}>Fetching channel data…</span>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
 
-function Delta({ up, children }) {
+function ErrorBanner({ message }) {
   return (
-    <span style={{ fontSize: 12, color: up ? "#1D9E75" : "#D85A30" }}>
-      {children}
-    </span>
-  );
-}
-
-function Sparkbar({ data, color }) {
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 36 }}>
-      {data.map((h, i) => (
-        <div
-          key={i}
-          style={{
-            flex: 1,
-            height: `${h}%`,
-            background: color,
-            borderRadius: "2px 2px 0 0",
-            minWidth: 6,
-          }}
-        />
-      ))}
+    <div style={{
+      background: RED_LIGHT, border: `0.5px solid ${RED_MID}`,
+      borderRadius: 10, padding: "1rem 1.25rem", margin: "1rem 0",
+      color: RED, fontSize: 13, lineHeight: 1.6,
+    }}>
+      <strong>Error:</strong> {message}
     </div>
   );
 }
 
-function StatCard({ label, value, delta, up }) {
+function YTIcon({ size = 18 }) {
   return (
-    <div
-      style={{
-        background: "var(--color-background-secondary, #f5f5f3)",
-        borderRadius: 8,
-        padding: "1rem",
-      }}
-    >
-      <div style={{ fontSize: 12, color: "var(--color-text-secondary, #666)", marginBottom: 6 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 22, fontWeight: 500, color: "var(--color-text-primary, #111)" }}>
-        {value}
-      </div>
-      <Delta up={up}>{delta}</Delta>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={RED}>
+      <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.8 15.5V8.5l6.3 3.5-6.3 3.5z"/>
+    </svg>
+  );
+}
+
+function StatPill({ label, value }) {
+  return (
+    <div style={{
+      background: "var(--color-background-secondary, #f5f5f3)",
+      borderRadius: 8, padding: "8px 12px", textAlign: "center", flex: 1,
+    }}>
+      <div style={{ fontSize: 11, color: "var(--color-text-secondary, #888)", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 16, fontWeight: 600, color: "var(--color-text-primary, #111)" }}>{value}</div>
     </div>
   );
 }
 
-function ChannelCard({ channel }) {
+function ChannelCard({ channel, videos, selected, onClick }) {
+  const { snippet, statistics } = channel;
+  const thumb = snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url;
+  const isActive = selected;
+
   return (
     <div
+      onClick={onClick}
       style={{
         background: "var(--color-background-primary, #fff)",
-        border: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.12))",
-        borderRadius: 12,
-        padding: "1rem 1.25rem",
+        border: isActive ? `2px solid ${RED}` : "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.12))",
+        borderRadius: 12, padding: "1.25rem",
+        cursor: "pointer", transition: "border-color 0.15s, box-shadow 0.15s",
+        boxShadow: isActive ? `0 0 0 3px ${RED}22` : "none",
       }}
     >
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <PlatformBadge id={channel.id} />
+      {/* Avatar + name */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        {thumb ? (
+          <img src={thumb} alt={snippet.title} style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+        ) : (
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: RED_LIGHT, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <YTIcon size={22} />
+          </div>
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary, #111)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {snippet.title}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--color-text-secondary, #888)", marginTop: 2 }}>
+            {snippet.customUrl || channel.id}
+          </div>
+        </div>
+        <div style={{ marginLeft: "auto", flexShrink: 0 }}>
+          <YTIcon size={16} />
+        </div>
+      </div>
+
+      {/* Metrics row */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <StatPill label="Subscribers" value={fmt(statistics.subscriberCount)} />
+        <StatPill label="Videos" value={fmt(statistics.videoCount)} />
+        <StatPill label="Total views" value={fmt(statistics.viewCount)} />
+      </div>
+
+      {/* Description snippet */}
+      <p style={{
+        fontSize: 12, color: "var(--color-text-secondary, #888)",
+        lineHeight: 1.5, margin: 0,
+        display: "-webkit-box", WebkitLineClamp: 2,
+        WebkitBoxOrient: "vertical", overflow: "hidden",
+      }}>
+        {snippet.description || "No description provided."}
+      </p>
+    </div>
+  );
+}
+
+function VideoRow({ video, index }) {
+  const { snippet, statistics } = video;
+  const thumb = snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url;
+
+  return (
+    <a
+      href={`https://youtube.com/watch?v=${video.id}`}
+      target="_blank"
+      rel="noreferrer"
+      style={{ textDecoration: "none", color: "inherit" }}
+    >
+      <div style={{
+        display: "flex", alignItems: "center", gap: 14,
+        padding: "12px 0",
+        borderBottom: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.08))",
+        transition: "background 0.1s", borderRadius: 6,
+      }}>
+        {/* Rank */}
+        <div style={{
+          width: 24, textAlign: "center", fontSize: 13, fontWeight: 600,
+          color: index < 3 ? RED : "var(--color-text-secondary, #aaa)", flexShrink: 0,
+        }}>
+          {index + 1}
+        </div>
+
+        {/* Thumbnail */}
+        {thumb && (
+          <img src={thumb} alt={snippet.title} style={{
+            width: 80, height: 45, borderRadius: 6, objectFit: "cover", flexShrink: 0,
+          }} />
+        )}
+
+        {/* Info */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 13, fontWeight: 500, color: "var(--color-text-primary, #111)",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}>
+            {snippet.title}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary, #888)", marginTop: 3 }}>
+            {timeAgo(snippet.publishedAt)}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div style={{ display: "flex", gap: 16, flexShrink: 0, textAlign: "right" }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-text-primary, #111)" }}>
-              {channel.name}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--color-text-secondary, #666)" }}>
-              {channel.handle}
-            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary, #111)" }}>{fmt(statistics.viewCount)}</div>
+            <div style={{ fontSize: 10, color: "var(--color-text-secondary, #aaa)" }}>views</div>
           </div>
-        </div>
-        <span
-          style={{
-            fontSize: 11,
-            padding: "3px 8px",
-            borderRadius: 99,
-            background: "var(--color-background-success, #e1f5ee)",
-            color: "var(--color-text-success, #0f6e56)",
-            border: "0.5px solid var(--color-border-success, #5dcaa5)",
-          }}
-        >
-          Active
-        </span>
-      </div>
-
-      {/* Metrics */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8, marginBottom: 14 }}>
-        {channel.metrics.map((m) => (
-          <div
-            key={m.label}
-            style={{
-              background: "var(--color-background-secondary, #f5f5f3)",
-              borderRadius: 8,
-              padding: "8px 10px",
-            }}
-          >
-            <div style={{ fontSize: 11, color: "var(--color-text-secondary, #666)", marginBottom: 3 }}>
-              {m.label}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--color-text-primary, #111)" }}>
-              {m.value}
-            </div>
-            <Delta up={m.up}>{m.delta}</Delta>
-          </div>
-        ))}
-      </div>
-
-      <Sparkbar data={channel.spark} color={channel.color.bar} />
-    </div>
-  );
-}
-
-function PostRow({ post }) {
-  const ch = CHANNELS.find((c) => c.id === post.platformId);
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "10px 0",
-        borderBottom: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.12))",
-      }}
-    >
-      <div
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 8,
-          background: ch?.color.bg || "#eee",
-          color: ch?.color.text || "#333",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 16,
-          flexShrink: 0,
-        }}
-      >
-        {post.platformId === "yt" ? "▶" : post.platformId === "tk" ? "♪" : "★"}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 13,
-            fontWeight: 500,
-            color: "var(--color-text-primary, #111)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {post.title}
-        </div>
-        <div style={{ fontSize: 11, color: "var(--color-text-secondary, #666)", marginTop: 2 }}>
-          {post.platform} · {post.age}
-        </div>
-      </div>
-      <span
-        style={{
-          fontSize: 10,
-          padding: "2px 7px",
-          borderRadius: 99,
-          background: ch?.color.bg || "#eee",
-          color: ch?.color.text || "#333",
-          flexShrink: 0,
-        }}
-      >
-        {post.platform}
-      </span>
-      <div style={{ display: "flex", gap: 14, flexShrink: 0 }}>
-        {post.stats.map((s) => (
-          <div key={s.label} style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary, #111)" }}>
-              {s.value}
-            </div>
-            <div style={{ fontSize: 10, color: "var(--color-text-secondary, #666)" }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PlatformSharePanel() {
-  return (
-    <div
-      style={{
-        background: "var(--color-background-primary, #fff)",
-        border: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.12))",
-        borderRadius: 12,
-        padding: "1rem 1.25rem",
-      }}
-    >
-      <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-text-secondary, #666)", marginBottom: 12 }}>
-        Follower share by platform
-      </div>
-      {PLATFORM_SHARE.map((p) => (
-        <div
-          key={p.id}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "7px 0",
-            borderBottom: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.08))",
-          }}
-        >
-          <PlatformBadge id={p.id} size={24} />
-          <div style={{ fontSize: 13, color: "var(--color-text-primary, #111)", flex: 1 }}>{p.label}</div>
-          <div
-            style={{
-              width: 80,
-              height: 6,
-              background: "var(--color-background-secondary, #f0f0ee)",
-              borderRadius: 3,
-              overflow: "hidden",
-            }}
-          >
-            <div style={{ width: `${p.pct}%`, height: "100%", background: p.bar, borderRadius: 3 }} />
-          </div>
-          <div style={{ fontSize: 12, color: "var(--color-text-secondary, #666)", minWidth: 32, textAlign: "right" }}>
-            {p.pct}%
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AlertsPanel() {
-  return (
-    <div
-      style={{
-        background: "var(--color-background-primary, #fff)",
-        border: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.12))",
-        borderRadius: 12,
-        padding: "1rem 1.25rem",
-      }}
-    >
-      <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-text-secondary, #666)", marginBottom: 12 }}>
-        Alerts &amp; activity
-      </div>
-      {ALERTS.map((a, i) => (
-        <div
-          key={i}
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 10,
-            padding: "8px 0",
-            borderBottom:
-              i < ALERTS.length - 1
-                ? "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.08))"
-                : "none",
-          }}
-        >
-          <div
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: a.dot,
-              marginTop: 4,
-              flexShrink: 0,
-            }}
-          />
           <div>
-            <div style={{ fontSize: 12, color: "var(--color-text-primary, #111)", lineHeight: 1.5 }}>
-              {a.text}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--color-text-secondary, #666)", marginTop: 2 }}>
-              {a.time}
-            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary, #111)" }}>{fmt(statistics.likeCount)}</div>
+            <div style={{ fontSize: 10, color: "var(--color-text-secondary, #aaa)" }}>likes</div>
           </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary, #111)" }}>{fmt(statistics.commentCount)}</div>
+            <div style={{ fontSize: 10, color: "var(--color-text-secondary, #aaa)" }}>comments</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: RED }}>{engagementRate(statistics)}</div>
+            <div style={{ fontSize: 10, color: "var(--color-text-secondary, #aaa)" }}>eng. rate</div>
+          </div>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+function SummaryBar({ channels }) {
+  const totalSubs = channels.reduce((s, c) => s + parseInt(c.statistics.subscriberCount || "0"), 0);
+  const totalViews = channels.reduce((s, c) => s + parseInt(c.statistics.viewCount || "0"), 0);
+  const totalVideos = channels.reduce((s, c) => s + parseInt(c.statistics.videoCount || "0"), 0);
+
+  const cards = [
+    { label: "Channels tracked", value: channels.length },
+    { label: "Total subscribers", value: fmt(totalSubs) },
+    { label: "Total video views", value: fmt(totalViews) },
+    { label: "Total videos", value: fmt(totalVideos) },
+  ];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12, marginBottom: "1.5rem" }}>
+      {cards.map((c) => (
+        <div key={c.label} style={{
+          background: "var(--color-background-secondary, #f5f5f3)",
+          borderRadius: 8, padding: "1rem",
+        }}>
+          <div style={{ fontSize: 12, color: "var(--color-text-secondary, #888)", marginBottom: 6 }}>{c.label}</div>
+          <div style={{ fontSize: 22, fontWeight: 600, color: "var(--color-text-primary, #111)" }}>{c.value}</div>
         </div>
       ))}
     </div>
   );
 }
 
-// ── Main Dashboard ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Main
+// ─────────────────────────────────────────────────────────────────────────────
 
-export default function SocialDashboard() {
-  const [activeRange, setActiveRange] = useState("30d");
-  const ranges = ["7d", "30d", "90d"];
+export default function YoutubeDashboard() {
+  const [channels, setChannels] = useState([]);
+  const [videoMap, setVideoMap] = useState({});   // channelId → video[]
+  const [selectedId, setSelectedId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+
+  // Initial channel fetch
+  useEffect(() => {
+    if (!API_KEY || API_KEY === "YOUR_YOUTUBE_API_KEY_HERE") {
+      setError("Please set your YouTube Data API v3 key in the API_KEY constant at the top of the file.");
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    fetchChannels(CHANNEL_IDS)
+      .then((items) => {
+        setChannels(items);
+        if (items.length > 0) setSelectedId(items[0].id);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Fetch videos when selected channel changes
+  useEffect(() => {
+    if (!selectedId) return;
+    if (videoMap[selectedId]) return; // already fetched
+    setVideoLoading(true);
+    fetchRecentVideos(selectedId, 8)
+      .then((vids) => setVideoMap((prev) => ({ ...prev, [selectedId]: vids })))
+      .catch((e) => setError(e.message))
+      .finally(() => setVideoLoading(false));
+  }, [selectedId]);
+
+  const selectedChannel = channels.find((c) => c.id === selectedId);
+  const selectedVideos = videoMap[selectedId] || [];
 
   return (
     <div style={{ padding: "1.5rem", maxWidth: 1100, margin: "0 auto", fontFamily: "var(--font-sans, system-ui)" }}>
-      {/* Top bar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: "1.5rem",
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "1.5rem" }}>
+        <YTIcon size={28} />
         <div>
-          <h2 style={{ fontSize: 18, fontWeight: 500, color: "var(--color-text-primary, #111)", margin: 0 }}>
-            Social media overview
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: "var(--color-text-primary, #111)", margin: 0 }}>
+            YouTube Channel Dashboard
           </h2>
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary, #666)", marginTop: 2 }}>
-            4 channels across 3 platforms
+          <p style={{ fontSize: 13, color: "var(--color-text-secondary, #888)", margin: "2px 0 0" }}>
+            Tracking {CHANNEL_IDS.length} channel{CHANNEL_IDS.length !== 1 ? "s" : ""} · Powered by YouTube Data API v3
           </p>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {ranges.map((r) => (
-            <button
-              key={r}
-              onClick={() => setActiveRange(r)}
-              style={{
-                fontSize: 12,
-                padding: "5px 12px",
-                borderRadius: 8,
-                border: "0.5px solid var(--color-border-secondary, rgba(0,0,0,0.25))",
-                background: activeRange === r ? "var(--color-background-secondary, #f0f0ee)" : "transparent",
-                color:
-                  activeRange === r
-                    ? "var(--color-text-primary, #111)"
-                    : "var(--color-text-secondary, #666)",
-                cursor: "pointer",
-                fontWeight: activeRange === r ? 500 : 400,
-              }}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* Summary row */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, minmax(0,1fr))",
-          gap: 12,
-          marginBottom: "1.5rem",
-        }}
-      >
-        {SUMMARY.map((s) => (
-          <StatCard key={s.label} {...s} />
-        ))}
-      </div>
+      {/* Error */}
+      {error && <ErrorBanner message={error} />}
 
-      {/* Channels */}
-      <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-text-secondary, #666)", marginBottom: 10 }}>
-        Channels
-      </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, minmax(0,1fr))",
-          gap: 12,
-          marginBottom: "1.5rem",
-        }}
-      >
-        {CHANNELS.map((ch) => (
-          <ChannelCard key={ch.id} channel={ch} />
-        ))}
-      </div>
+      {/* Loading */}
+      {loading && <Spinner />}
 
-      {/* Recent posts */}
-      <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-text-secondary, #666)", marginBottom: 10 }}>
-        Recent posts
-      </div>
-      <div
-        style={{
-          background: "var(--color-background-primary, #fff)",
-          border: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.12))",
-          borderRadius: 12,
-          padding: "1rem 1.25rem",
-          marginBottom: "1.5rem",
-        }}
-      >
-        {POSTS.map((p, i) => (
-          <div key={p.id} style={i === POSTS.length - 1 ? { borderBottom: "none" } : {}}>
-            <PostRow post={p} />
+      {/* Content */}
+      {!loading && !error && channels.length > 0 && (
+        <>
+          {/* Summary bar */}
+          <SummaryBar channels={channels} />
+
+          {/* Channel grid */}
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-secondary, #888)", marginBottom: 10 }}>
+            Channels — click to inspect
           </div>
-        ))}
-      </div>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${Math.min(channels.length, 3)}, minmax(0,1fr))`,
+            gap: 12,
+            marginBottom: "1.75rem",
+          }}>
+            {channels.map((ch) => (
+              <ChannelCard
+                key={ch.id}
+                channel={ch}
+                videos={videoMap[ch.id] || []}
+                selected={selectedId === ch.id}
+                onClick={() => setSelectedId(ch.id)}
+              />
+            ))}
+          </div>
 
-      {/* Bottom row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <PlatformSharePanel />
-        <AlertsPanel />
-      </div>
+          {/* Selected channel detail */}
+          {selectedChannel && (
+            <div style={{
+              background: "var(--color-background-primary, #fff)",
+              border: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.12))",
+              borderRadius: 12, padding: "1.25rem",
+            }}>
+              {/* Panel header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "1rem" }}>
+                <div style={{
+                  width: 6, height: 22, background: RED, borderRadius: 3, flexShrink: 0,
+                }} />
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-primary, #111)" }}>
+                    {selectedChannel.snippet.title}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--color-text-secondary, #888)" }}>
+                    Recent uploads · sorted by publish date
+                  </div>
+                </div>
+              </div>
+
+              {/* Videos */}
+              {videoLoading ? (
+                <Spinner />
+              ) : selectedVideos.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--color-text-secondary, #888)", padding: "1rem 0" }}>
+                  No videos found for this channel.
+                </div>
+              ) : (
+                <div>
+                  {/* Table header */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "24px 80px 1fr 64px 64px 72px 72px",
+                    gap: 14, padding: "0 0 8px",
+                    borderBottom: `2px solid ${RED_LIGHT}`,
+                    fontSize: 11, fontWeight: 500,
+                    color: "var(--color-text-secondary, #aaa)",
+                    letterSpacing: "0.04em",
+                  }}>
+                    <span>#</span>
+                    <span />
+                    <span>Title</span>
+                    <span style={{ textAlign: "right" }}>Views</span>
+                    <span style={{ textAlign: "right" }}>Likes</span>
+                    <span style={{ textAlign: "right" }}>Comments</span>
+                    <span style={{ textAlign: "right" }}>Eng. rate</span>
+                  </div>
+                  {selectedVideos.map((v, i) => (
+                    <VideoRow key={v.id} video={v} index={i} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* No channels found */}
+          {channels.length === 0 && !loading && (
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary, #888)", padding: "2rem", textAlign: "center" }}>
+              No channels found. Check that your channel IDs are correct.
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
