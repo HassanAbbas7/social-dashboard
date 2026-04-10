@@ -78,21 +78,40 @@ async function ytFetchRecentVideos(channelId, max = 6) {
 
 const TW_BASE = "/.netlify/functions";
 
+const userCache = new Map();
+const tweetCache = new Map();
+
 async function twFetchUsers(ids) {
-  const res = await fetch(
-    `${TW_BASE}/twitter-users?userIds=${ids.join(",")}`
-  );
+  const uncachedIds = ids.filter(id => !userCache.has(id));
 
-  const data = await res.json();
+  if (uncachedIds.length > 0) {
+    const res = await fetch(
+      `${TW_BASE}/twitter-users?userIds=${uncachedIds.join(",")}`
+    );
+    const data = await res.json();
 
-  if (data.status !== "success") {
-    throw new Error(data.msg || "Twitter API error");
+    if (data.status !== "success") {
+      throw new Error(data.msg || "Twitter API error");
+    }
+
+    data.users.forEach(user => {
+      userCache.set(user.id, user);
+    });
   }
 
-  return data.users || [];
+  return ids.map(id => userCache.get(id));
 }
 
+const TWEET_TTL = 1000 * 60 * 5;
+
 async function twFetchLastTweets(userId, count = 8) {
+  const cached = tweetCache.get(userId);
+
+  if (cached && Date.now() - cached.time < TWEET_TTL) {
+    return cached.data.slice(0, count);
+  }
+
+
   const res = await fetch(
     `${TW_BASE}/twitter-tweets?userId=${userId}`
   );
@@ -103,7 +122,14 @@ async function twFetchLastTweets(userId, count = 8) {
     throw new Error(data.message || "Twitter API error");
   }
 
-  return (data.data.tweets || []).slice(0, count);
+  const tweets = data.data.tweets || [];
+
+  tweetCache.set(userId, {
+    data: tweets,
+    time: Date.now()
+  });
+
+  return tweets.slice(0, count);
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Formatters
