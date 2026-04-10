@@ -6,7 +6,7 @@ export async function handler(event, context) {
       `https://api.twitterapi.io/twitter/user/batch_info_by_ids?userIds=${ids}`,
       {
         headers: {
-          "X-API-Key": process.env.TWITTER_API,
+          "X-API-Key": process.env.REACT_APP_TWITTER_API,
         },
       }
     );

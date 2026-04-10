@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const YOUTUBE_API_KEY = "AIzaSyCrMNXPAtXs1Z98p1i66EeiRQWxlTEPAhs";
-const TWITTER_API_KEY = "new1_c5693e3a0e8545babb1ec58996f5b3cf";
+const TWITTER_API_KEY = "**************************";
 
 const YOUTUBE_CHANNEL_IDS = [
   "UC0gGr2lh1BR-nmiCdJPbEFQ",
