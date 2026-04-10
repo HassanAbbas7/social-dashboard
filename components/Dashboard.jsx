@@ -76,15 +76,12 @@ async function ytFetchRecentVideos(channelId, max = 6) {
 // Twitter API helpers  (twitterapi.io)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TW_BASE = "/twitter-api";
+const TW_BASE = "/.netlify/functions";
 
 async function twFetchUsers(ids) {
   const res = await fetch(
-    `${TW_BASE}/twitter/user/batch_info_by_ids?userIds=${ids.join(",")}`,
-    { headers: { "X-API-Key": TWITTER_API_KEY } }
+    `${TW_BASE}/twitter-users?userIds=${ids.join(",")}`
   );
-
-  if (!res.ok) throw new Error(`twitterapi.io error ${res.status}`);
 
   const data = await res.json();
 
@@ -97,11 +94,8 @@ async function twFetchUsers(ids) {
 
 async function twFetchLastTweets(userId, count = 8) {
   const res = await fetch(
-    `${TW_BASE}/twitter/user/last_tweets?userId=${userId}&includeReplies=false`,
-    { headers: { "X-API-Key": TWITTER_API_KEY } }
+    `${TW_BASE}/twitter-tweets?userId=${userId}`
   );
-
-  if (!res.ok) throw new Error(`twitterapi.io tweets error ${res.status}`);
 
   const data = await res.json();
 
