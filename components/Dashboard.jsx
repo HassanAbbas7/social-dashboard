@@ -76,7 +76,7 @@ async function ytFetchRecentVideos(channelId, max = 6) {
 // Twitter API helpers  (twitterapi.io)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TW_BASE = "/twitter-api";
+const TW_BASE = "https://api.twitterapi.io";
 
 async function twFetchUsers(ids) {
   const res = await fetch(
